@@ -109,7 +109,7 @@ def set_config_default(config: CONFIG_DICT_TYPE, *sections: str, key: str, defau
     for section in sections:
         subconfig = subconfig.setdefault(section, {})
         if not isinstance(subconfig, dict):
-            raise Exception(f'The {section} section in {sections} should hold a set of key-value pairs, not a value.')
+            raise Exception(f"The {section} section in {sections} should hold a set of key-value pairs, not a value.")
     if force_empty_values:
         if subconfig.get(key) in [None, ""]:
             subconfig[key] = default
@@ -200,6 +200,7 @@ def insert_default_values(CONFIG: CONFIG_DICT_TYPE) -> None:
     set_config_default(CONFIG, "challenge", key="max_days", default=math.inf)
     set_config_default(CONFIG, "challenge", key="min_days", default=1)
     set_config_default(CONFIG, "challenge", key="block_list", default=[], force_empty_values=True)
+    set_config_default(CONFIG, "challenge", key="allow_list", default=[], force_empty_values=True)
     set_config_default(CONFIG, "correspondence", key="checkin_period", default=600)
     set_config_default(CONFIG, "correspondence", key="move_time", default=60, force_empty_values=True)
     set_config_default(CONFIG, "correspondence", key="disconnect_time", default=300)
@@ -251,8 +252,6 @@ def validate_config(CONFIG: CONFIG_DICT_TYPE) -> None:
     check_config_section(CONFIG, "dir", str, "engine")
     check_config_section(CONFIG, "name", str, "engine")
 
-    config_assert(CONFIG["token"] != "xxxxxxxxxxxxxxxx",
-                  "Your config.yml has the default Lichess API token. This is probably wrong.")
     config_assert(os.path.isdir(CONFIG["engine"]["dir"]),
                   f'Your engine directory `{CONFIG["engine"]["dir"]}` is not a directory.')
 
@@ -274,6 +273,14 @@ def validate_config(CONFIG: CONFIG_DICT_TYPE) -> None:
             config_assert(online_section.get("move_quality") != "suggest" or not online_section.get("enabled"),
                           f"XBoard engines can't be used with `move_quality` set to `suggest` in {subsection}.")
 
+    for section, subsection in (("online_moves", "online_egtb"),
+                                ("lichess_bot_tbs", "syzygy"),
+                                ("lichess_bot_tbs", "gaviota")):
+        online_section = (CONFIG["engine"].get(section) or {}).get(subsection) or {}
+        if online_section.get("move_quality") == "good":
+            logger.warning(
+                DeprecationWarning(f"`move_quality` `good` in {subsection} is deprecated and will be removed soon."))
+
     matchmaking = CONFIG.get("matchmaking") or {}
     matchmaking_enabled = matchmaking.get("allow_matchmaking") or False
     # `, []` is there only for mypy. It isn't used.
@@ -289,6 +296,40 @@ def validate_config(CONFIG: CONFIG_DICT_TYPE) -> None:
     config_assert(filter_type is None or filter_type in FilterType.__members__.values(),
                   f"{filter_type} is not a valid value for {filter_option} (formerly delay_after_decline) parameter. "
                   f"Choices are: {', '.join(FilterType)}.")
+
+    selection_choices = {"polyglot": ["weighted_random", "uniform_random", "best_move"],
+                         "chessdb_book": ["all", "good", "best"],
+                         "lichess_cloud_analysis": ["good", "best"],
+                         "online_egtb": ["good", "best", "suggest"]}
+    for db_name, valid_selections in selection_choices.items():
+        is_online = db_name != "polyglot"
+        db_section = (CONFIG["engine"].get("online_moves") or {}) if is_online else CONFIG["engine"]
+        db_config = db_section.get(db_name)
+        select_key = "selection" if db_name == "polyglot" else "move_quality"
+        selection = db_config.get(select_key)
+        select = f"{'online_moves:' if is_online else ''}{db_name}:{select_key}"
+        config_assert(selection in valid_selections,
+                      f"`{selection}` is not a valid `engine:{select}` value. "
+                      f"Please choose from {valid_selections}.")
+
+    lichess_tbs_config = CONFIG["engine"].get("lichess_bot_tbs") or {}
+    quality_selections = ["good", "best", "suggest"]
+    for tb in ["syzygy", "gaviota"]:
+        selection = (lichess_tbs_config.get(tb) or {}).get("move_quality")
+        config_assert(selection in quality_selections,
+                      f"`{selection}` is not a valid choice for `engine:lichess_bot_tbs:{tb}:move_quality`. "
+                      f"Please choose from {quality_selections}.")
+
+    explorer_choices = {"source": ["lichess", "masters", "player"],
+                        "sort": ["winrate", "games_played"]}
+    explorer_config = (CONFIG["engine"].get("online_moves") or {}).get("lichess_opening_explorer")
+    if explorer_config:
+        for parameter, choice_list in explorer_choices.items():
+            explorer_choice = explorer_config.get(parameter)
+            config_assert(explorer_choice in choice_list,
+                          f"`{explorer_choice}` is not a valid"
+                          f" `engine:online_moves:lichess_opening_explorer:{parameter}`"
+                          f" value. Please choose from {choice_list}.")
 
 
 def load_config(config_file: str) -> Configuration:

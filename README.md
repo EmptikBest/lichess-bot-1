@@ -100,7 +100,7 @@ Besides the above, there are many possible options within `config.yml` for confi
         - `move_quality`: Choice of `"all"` (`chessdb_book` only), `"good"`, `"best"`, or `"suggest"` (`online_egtb` only).
             - `all`: Choose a random move from all legal moves.
             - `best`: Choose only the highest scoring move.
-            - `good`: Choose randomly from the top moves. In `lichess_cloud_analysis`, the top moves list is controlled by `max_score_difference`. In `chessdb_book`, the top list is controlled by the online source.
+            - `good`: Choose randomly from the top moves. In `lichess_cloud_analysis`, the top moves list is controlled by `max_score_difference`. In `chessdb_book`, the top list is controlled by the online source. For `online_egtb`, `good` is deprecated and will be removed soon.
             - `suggest`: Let the engine choose between the top moves. The top moves are the all the moves that `"good"` could have returned. Can't be used with XBoard engines.
     - Configurations only in `chessdb_book` and `lichess_cloud_analysis`:
         - `min_depth`: The minimum search depth for a move evaluation for a database move to be accepted.
@@ -122,9 +122,9 @@ Besides the above, there are many possible options within `config.yml` for confi
         - `enabled`: Whether to use the tablebases at all.
         - `paths`: The paths to the tablebases.
         - `max_pieces`: The maximum number of pieces in the current board for which the tablebase will be consulted.
-        - `move_quality`: Choice of `"good"`, or `"best"`.
+        - `move_quality`: Choice of `good`, `best`, or `suggest`.
             - `best`: Choose only the highest scoring move. When using `syzygy`, if `.*tbz` files are not provided, the bot will attempt to get a move using `move_quality` = `good`.
-            - `good`: Choose randomly from the top moves.
+            - `good`: DEPRECATED. Will be removed soon. Choose randomly from the top moves.
             - `suggest`: Let the engine choose between the top moves. The top moves are the all the moves that `"good"` could have returned. Can't be used with XBoard engines.
     - Configurations only in `gaviota`:
         - `min_dtm_to_consider_as_wdl_1`: The minimum DTM to consider as syzygy WDL=1/-1. Setting it to 100 will disable it.
@@ -249,6 +249,7 @@ will precede the `go` command to start thinking with `sd 5`. The other `go_comma
     -casual
 ```
   - `block_list`: An indented list of usernames from which the challenges are always declined. If this option is not present, then the list is considered empty.
+  - `allow_list`: An indented list of usernames from which challenges are exclusively accepted. A challenge from a user not on this list is declined. If this option is not present or empty, any user's challenge may be accepted.
   - `recent_bot_challenge_age`: Maximum age of a bot challenge to be considered recent in seconds
   - `max_recent_bot_challenges`: Maximum number of recent challenges that can be accepted from the same bot
 - `greeting`: Send messages via chat to the bot's opponent. The string `{me}` will be replaced by the bot's lichess account name. The string `{opponent}` will be replaced by the opponent's lichess account name. Any other word between curly brackets will be removed. If you want to put a curly bracket in the message, use two: `{{` or `}}`.
